@@ -690,8 +690,6 @@ class WebRTCDemo {
      */
     // [START playStream]
     playStream() {
-        this.element.load();
-
         var playPromise = this.element.play();
         if (playPromise !== undefined) {
             playPromise.then(() => {

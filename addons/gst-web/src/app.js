@@ -150,6 +150,7 @@ var app = new Vue({
                 serverMemoryTotal: 0,
                 serverMemoryUsed: 0
             },
+            statsCount: 0,
             serverLatency: 0,
             resizeRemote: true,
             scaleLocal: false,
@@ -393,6 +394,7 @@ signaling.onerror = (message) => { app.logEntries.push(applyTimestamp("[signalin
 
 signaling.onjsonmessage = async (msg) => {
     if (msg.type === 'system_stats' && msg.data) {
+        app.logEntries.push(applyTimestamp("[stats] rcvd CPU=" + msg.data.cpu_percent + " MEM=" + (msg.data.mem_used / 1024 / 1024 / 1024).toFixed(1) + "G"));
         webrtc.onsystemstats(msg.data);
     }
 };
@@ -766,12 +768,13 @@ webrtc.onlatencymeasurement = (latency_ms) => {
 }
 
 webrtc.onsystemstats = async (stats) => {
-    // Update DOM only when menu is visible
-    if (app.showDrawer && (stats.cpu_percent !== undefined || stats.mem_total !== undefined || stats.mem_used !== undefined)) {
-        var cpuStat = {serverCPUUsage: app.cpuStat.serverCPUUsage, serverMemoryTotal: app.cpuStat.serverMemoryTotal, serverMemoryUsed: app.cpuStat.serverMemoryUsed};
-        if (stats.cpu_percent !== undefined) cpuStat.serverCPUUsage = stats.cpu_percent.toFixed(0);
-        if (stats.mem_total !== undefined) cpuStat.serverMemoryTotal = stats.mem_total;
-        if (stats.mem_used !== undefined) cpuStat.serverMemoryUsed = stats.mem_used;
+    app.statsCount++;
+    if (stats.cpu_percent !== undefined || stats.mem_total !== undefined || stats.mem_used !== undefined) {
+        var cpuStat = {
+            serverCPUUsage: Number(stats.cpu_percent !== undefined ? stats.cpu_percent.toFixed(1) : app.cpuStat.serverCPUUsage),
+            serverMemoryTotal: stats.mem_total !== undefined ? stats.mem_total : app.cpuStat.serverMemoryTotal,
+            serverMemoryUsed: stats.mem_used !== undefined ? stats.mem_used : app.cpuStat.serverMemoryUsed,
+        };
         app.cpuStat = cpuStat;
     }
 }

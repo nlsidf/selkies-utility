@@ -740,6 +740,10 @@ class SystemMonitor:
             return cpu, mem.total, mem.used, True
         except Exception:
             pass
+        mem_avail = None
+        mem_free = 0
+        buffers = 0
+        cached = 0
         try:
             with open('/proc/meminfo') as f:
                 for line in f:
@@ -747,8 +751,17 @@ class SystemMonitor:
                         mem_total = int(line.split()[1]) * 1024
                     elif line.startswith('MemAvailable:'):
                         mem_avail = int(line.split()[1]) * 1024
+                    elif line.startswith('MemFree:'):
+                        mem_free = int(line.split()[1]) * 1024
+                    elif line.startswith('Buffers:'):
+                        buffers = int(line.split()[1]) * 1024
+                    elif line.startswith('Cached:'):
+                        cached = int(line.split()[1]) * 1024
                 if mem_total > 0:
-                    mem_used = mem_total - mem_avail
+                    if mem_avail is not None:
+                        mem_used = mem_total - mem_avail
+                    else:
+                        mem_used = mem_total - mem_free - buffers - cached
         except Exception:
             pass
         return cpu_pct, mem_total, mem_used, False
