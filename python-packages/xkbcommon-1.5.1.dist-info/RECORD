@@ -1,0 +1,14 @@
+xkbcommon-1.5.1.dist-info/INSTALLER,sha256=zuuue4knoyJ-UwPPXg8fezS7VCrXJQrAP7zeNuwvFQg,4
+xkbcommon-1.5.1.dist-info/METADATA,sha256=UWUAKra5haOLj-BlJd_q7Ra_gKg1KuAikFY2r96PGJc,2236
+xkbcommon-1.5.1.dist-info/RECORD,,
+xkbcommon-1.5.1.dist-info/REQUESTED,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0
+xkbcommon-1.5.1.dist-info/WHEEL,sha256=8kfuSwNd9eRfFX-4niqTGxpAIUIv3H-0WdDXnjTdytM,112
+xkbcommon-1.5.1.dist-info/licenses/LICENSE,sha256=gIafHYJSRD_d0ibb4gcr0lJ39PHV-C7cqLy-hWBBzLc,1077
+xkbcommon-1.5.1.dist-info/top_level.txt,sha256=mwiJgrS6sflLlqDVsBKffSvzqLGNoVnBgcvmlz7-b6E,10
+xkbcommon/__init__.py,sha256=fvpUF3VNA1vIZf8kuMPL-IP53hsTb_I7LWamKGKlBWg,224
+xkbcommon/__pycache__/__init__.cpython-313.pyc,,
+xkbcommon/__pycache__/ffi_build.cpython-313.pyc,,
+xkbcommon/__pycache__/xkb.cpython-313.pyc,,
+xkbcommon/_ffi.abi3.so,sha256=RMQEBh0_wJURlaZ6lEoV6Z2d6q47qCcVrfJYIlgO_9Y,311616
+xkbcommon/ffi_build.py,sha256=3GoGPhyOE8gyGtNTQXrbTEmBEWlH6scGrn3dmWItVT8,14865
+xkbcommon/xkb.py,sha256=eOmWV912-blhs1HGzf2b-_TwCx0QpPfK2YP0kkK6lj0,49679

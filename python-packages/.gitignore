@@ -1,0 +1,5 @@
+# Only include the actual package files, ignore any build artifacts
+*.pyc
+__pycache__/
+.pytest_cache/
+*.egg-info/
