@@ -112,6 +112,11 @@ class WebRTCSignaling:
         msg = json.dumps({'ice': {'candidate': candidate, 'sdpMLineIndex': mlineindex}})
         await self.conn.send(str(client_peer_id) + ' ' + msg)
 
+    async def send_json(self, msg_type: str, data: dict, client_peer_id: str):
+        """Sends an arbitrary JSON message to the peer."""
+        msg = json.dumps({"type": msg_type, "data": data})
+        await self.conn.send(str(client_peer_id) + ' ' + msg)
+
     async def send_sdp(self, sdp_type, sdp, client_peer_id):
         """Sends the SDP to peer
 

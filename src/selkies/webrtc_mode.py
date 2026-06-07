@@ -87,6 +87,7 @@ class WebRTCApp:
         self._json_config_lock = asyncio.Lock()
         self.peer_id = 1
         self.args: Optional[SimpleNamespace] = None
+        self._client_peer_id: Optional[str] = None
         self.monitoring_utils_used: Dict[str, bool] = {}
         self.mon_hmac_turn: Optional[HMACRTCMonitor] = None
         self.mon_rest_api: Optional[RESTRTCMonitor] = None
@@ -146,7 +147,8 @@ class WebRTCApp:
                 audio_bitrate=int(self.args.audio_bitrate),
                 keyframe_distance=float(self.args.keyframe_distance),
                 video_packetloss_percent=float(self.args.video_packetloss_percent),
-                audio_packetloss_percent=float(self.args.audio_packetloss_percent)
+                audio_packetloss_percent=float(self.args.audio_packetloss_percent),
+                audio_enabled=bool(self.args.audio_enabled[0]) if isinstance(self.args.audio_enabled, tuple) else bool(self.args.audio_enabled)
             )
         else:
             self.media_pipeline = MediaPipelinePixel(
@@ -220,6 +222,7 @@ class WebRTCApp:
 
     async def handle_session_start(self, session_peer_id: str, client_type: str) -> None:
         logger.info(f"starting session for client peer id: {session_peer_id} of type: {client_type}")
+        self._client_peer_id = session_peer_id
         try:
             await self.rtc_app.start_rtc_connection(session_peer_id, client_type)
             # Initialize stats location directory
@@ -290,14 +293,19 @@ class WebRTCApp:
         self.signaling_client.on_ice = self.rtc_app.set_ice
 
         # Media pipeline callbacks
-        if self.args.media_pipeline == 'gstreamer':
+        if self.args.encoder_rtc == 'h264_mediacodec':
+            self.media_pipeline.produce_data = self.rtc_app.consume_data_mediacodec
+        elif self.args.media_pipeline == 'gstreamer':
             self.media_pipeline.produce_data = self.rtc_app.consume_data_gst
         else:
             self.media_pipeline.produce_data = self.rtc_app.consume_data_pixel
         self.media_pipeline.send_data_channel_message = self.rtc_app.send_media_data_over_channel
 
         # RTCApp callbacks
-        self.rtc_app.request_idr_frame = self.media_pipeline.dynamic_idr_frame
+        if self.args.encoder_rtc == 'h264_mediacodec':
+            self.rtc_app.request_idr_frame = self.rtc_app.mediacodec_force_keyframe
+        else:
+            self.rtc_app.request_idr_frame = self.media_pipeline.dynamic_idr_frame
         self.rtc_app.on_sdp = self.signaling_client.send_sdp
         self.rtc_app.on_ice = self.signaling_client.send_ice
         self.rtc_app.on_data_open = self.handle_data_channel_open
@@ -463,6 +471,13 @@ class WebRTCApp:
                 self.system_monitor.mem_used
             )
             self.rtc_app.send_ping(t)
+        # Fallback: send system stats via signaling WebSocket if data channel is not ready
+        if self.signaling_client and self._client_peer_id and self.system_monitor:
+            await self.signaling_client.send_json("system_stats", {
+                "cpu_percent": self.system_monitor.cpu_percent,
+                "mem_total": self.system_monitor.mem_total,
+                "mem_used": self.system_monitor.mem_used,
+            }, self._client_peer_id)
 
     async def handle_gpu_stats(self, load: float, memory_total: int, memory_used: int) -> None:
         """Handle GPU stats monitoring timer."""

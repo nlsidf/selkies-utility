@@ -728,10 +728,62 @@ class SystemMonitor:
         self.task = asyncio.create_task(self._monitor_loop())
         logger_system.info("System monitor started")
 
+    @staticmethod
+    def _read_proc_system_stats():
+        cpu_pct = 0.0
+        mem_total = 0
+        mem_used = 0
+        psutil_ok = False
+        try:
+            mem = psutil.virtual_memory()
+            cpu = psutil.cpu_percent()
+            return cpu, mem.total, mem.used, True
+        except Exception:
+            pass
+        try:
+            with open('/proc/meminfo') as f:
+                for line in f:
+                    if line.startswith('MemTotal:'):
+                        mem_total = int(line.split()[1]) * 1024
+                    elif line.startswith('MemAvailable:'):
+                        mem_avail = int(line.split()[1]) * 1024
+                if mem_total > 0:
+                    mem_used = mem_total - mem_avail
+        except Exception:
+            pass
+        return cpu_pct, mem_total, mem_used, False
+
+    _last_cpu_time = 0.0
+    _last_cpu_wall = 0.0
+
+    @classmethod
+    def _read_proc_cpu_percent(cls):
+        try:
+            with open('/proc/self/stat') as f:
+                parts = f.read().split()
+                utime = int(parts[13])
+                stime = int(parts[14])
+            now = time.time()
+            total_cpu = (utime + stime) / 100.0
+            if cls._last_cpu_time > 0:
+                dt = now - cls._last_cpu_wall
+                if dt > 0:
+                    cpu = min(100.0, ((total_cpu - cls._last_cpu_time) / dt) * 100.0)
+                else:
+                    cpu = 0.0
+            else:
+                cpu = 0.0
+            cls._last_cpu_time = total_cpu
+            cls._last_cpu_wall = now
+            return cpu
+        except Exception:
+            return 0.0
+
     def _get_system_metrics(self):
-        cpu = psutil.cpu_percent()
-        mem = psutil.virtual_memory()
-        return cpu, mem.total, mem.used
+        cpu, mem_total, mem_used, psutil_ok = self._read_proc_system_stats()
+        if not psutil_ok:
+            cpu = self._read_proc_cpu_percent()
+        return cpu, mem_total, mem_used
 
     async def _monitor_loop(self):
         try:

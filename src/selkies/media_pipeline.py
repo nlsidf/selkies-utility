@@ -28,9 +28,6 @@ import time
 import ctypes
 from abc import ABCMeta, abstractmethod
 
-from pixelflux import CaptureSettings, ScreenCapture, StripeCallback
-from pcmflux import AudioCapture, AudioCaptureSettings, AudioChunkCallback
-
 logger = logging.getLogger("media_pipeline")
 logger.setLevel(logging.INFO)
 
@@ -133,7 +130,8 @@ class MediaPipelineGst(MediaPipeline):
         audio_bitrate: int = 96000,
         keyframe_distance: float = -1.0,
         video_packetloss_percent: float = 0.0,
-        audio_packetloss_percent: float = 0.0
+        audio_packetloss_percent: float = 0.0,
+        audio_enabled: bool = True
     ):
         """Initialize GStreamer WebRTC app.
 
@@ -159,6 +157,7 @@ class MediaPipelineGst(MediaPipeline):
         # Packet loss base percentage
         self.video_packetloss_percent = video_packetloss_percent
         self.audio_packetloss_percent = audio_packetloss_percent
+        self.audio_enabled = bool(audio_enabled[0]) if isinstance(audio_enabled, tuple) else bool(audio_enabled)
 
         self._calculate_auxiliary_keyframe_properties()
 
@@ -198,7 +197,8 @@ class MediaPipelineGst(MediaPipeline):
     def _create_app_sinks(self):
         """Create application sinks for video and audio"""
         self._create_app_sink("video")
-        self._create_app_sink("audio")
+        if self.audio_enabled:
+            self._create_app_sink("audio")
 
     def _create_app_sink(self, kind: str):
         """Create an appsink for the specified media kind"""
@@ -739,6 +739,15 @@ class MediaPipelineGst(MediaPipeline):
             openh264enc.set_property("rate-control", "bitrate")
             openh264enc.set_property("bitrate", self.fec_video_bitrate * 1000)
 
+        elif self.encoder in ["h264_mediacodec"]:
+            videoconvert = _Gst.ElementFactory.make("videoconvert")
+            videoconvert.set_property("n-threads", min(4, max(1, len(os.sched_getaffinity(0)) - 1)))
+            videoconvert.set_property("qos", True)
+            videoconvert_caps = _Gst.caps_from_string("video/x-raw")
+            videoconvert_caps.set_value("format", "NV12")
+            videoconvert_capsfilter = _Gst.ElementFactory.make("capsfilter")
+            videoconvert_capsfilter.set_property("caps", videoconvert_caps)
+
         elif self.encoder in ["x265enc"]:
             # Videoconvert for colorspace conversion
             videoconvert = _Gst.ElementFactory.make("videoconvert")
@@ -933,6 +942,9 @@ class MediaPipelineGst(MediaPipeline):
         elif self.encoder in ["openh264enc"]:
             pipeline_elements += [videoconvert, videoconvert_capsfilter, openh264enc, h264enc_capsfilter]
 
+        elif self.encoder in ["h264_mediacodec"]:
+            pipeline_elements += [videoconvert, videoconvert_capsfilter]
+
         elif self.encoder in ["x265enc"]:
             pipeline_elements += [videoconvert, videoconvert_capsfilter, x265enc, h265enc_capsfilter]
 
@@ -1039,6 +1051,7 @@ class MediaPipelineGst(MediaPipeline):
             "va": ["va"],
             "x264": ["x264"],
             "openh264": ["openh264"],
+            "h264_mediacodec": [],
             "x265": ["x265"],
             "vp": ["vpx"],
             "svtav1": ["svtav1"],
@@ -1084,6 +1097,8 @@ class MediaPipelineGst(MediaPipeline):
         elif self.encoder in ["openh264enc"]:
             element = _Gst.Bin.get_by_name(self.pipeline, "openh264enc")
             element.set_property("gop-size", 2147483647 if self.keyframe_distance == -1.0 else self.keyframe_frame_distance)
+        elif self.encoder in ["h264_mediacodec"]:
+            logger.info("h264_mediacodec framerate/gop updated in rtc.py encoder")
         elif self.encoder in ["x265enc"]:
             element = _Gst.Bin.get_by_name(self.pipeline, "x265enc")
             element.set_property("key-int-max", 2147483647 if self.keyframe_distance == -1.0 else self.keyframe_frame_distance)
@@ -1141,6 +1156,8 @@ class MediaPipelineGst(MediaPipeline):
         elif self.encoder in ["openh264enc"]:
             element = _Gst.Bin.get_by_name(self.pipeline, "openh264enc")
             element.set_property("bitrate", fec_bitrate * 1000)
+        elif self.encoder in ["h264_mediacodec"]:
+            logger.info("h264_mediacodec bitrate updated in rtc.py encoder")
         elif self.encoder in ["x265enc"]:
             element = _Gst.Bin.get_by_name(self.pipeline, "x265enc")
             element.set_property("bitrate", fec_bitrate)
@@ -1201,7 +1218,8 @@ class MediaPipelineGst(MediaPipeline):
 
             self._create_app_sinks()
             self._build_video_pipeline()
-            self._build_audio_pipeline()
+            if self.audio_enabled:
+                self._build_audio_pipeline()
 
             # Start pipeline asynchronously
             await self._start_pipeline_async()
@@ -1425,6 +1443,7 @@ class MediaPipelinePixel(MediaPipeline):
 
     def generate_capture_settings(self):
         """Generates configuration for pixelflux screen capturing"""
+        from pixelflux import CaptureSettings
         cs = CaptureSettings()
         cs.capture_width = self.width
         cs.capture_height = self.height
@@ -1471,6 +1490,7 @@ class MediaPipelinePixel(MediaPipeline):
                 logger.error(f"Error in capture callback: {e}", exc_info=False)
 
         try:
+            from pixelflux import ScreenCapture
             self.capture_module = ScreenCapture()
             await self.async_event_loop.run_in_executor(None, self.capture_module.start_capture, settings, screen_capture_callback)
             self._is_screen_capturing = True
@@ -1512,6 +1532,7 @@ class MediaPipelinePixel(MediaPipeline):
 
         logger.info("Starting pcmflux audio pipeline...")
         try:
+            from pcmflux import AudioCapture, AudioCaptureSettings, AudioChunkCallback
             capture_settings = AudioCaptureSettings()
             device_name_bytes = self.audio_device_name.encode('utf-8') if self.audio_device_name else None
             capture_settings.device_name = device_name_bytes

@@ -150,7 +150,7 @@ SETTING_DEFINITIONS_WEBRTC = [
     {'name': 'cloudflare_turn_token_id', 'type': 'str', 'default': '', 'help': 'The Cloudflare TURN App token ID.'},
     {'name': 'cloudflare_turn_api_token', 'type': 'str', 'default': '', 'help': 'The Cloudflare TURN API token.'},
 
-    {'name': 'encoder_rtc', 'type': 'enum', 'default': 'x264enc', 'meta': {'allowed': ['av1enc', 'x264enc', 'nvh264enc', 'vp8enc']}, 'help': 'GStreamer video encoder to use'},
+    {'name': 'encoder_rtc', 'type': 'enum', 'default': 'x264enc', 'meta': {'allowed': ['av1enc', 'x264enc', 'nvh264enc', 'vp8enc', 'vp9enc', 'openh264enc', 'h264_mediacodec']}, 'help': 'GStreamer video encoder to use'},
     {'name': 'video_bitrate', 'type': 'range', 'default': '1-100', 'meta': {"default_value": 8}, 'help': 'Default video bitrate in Megabits per second (Mbps), allowed range (e.g., "1-100") or a fixed value (e.g., "8" for 8 Mbps)'},
     {'name': 'app_wait_ready', 'type': 'bool', 'default': False, 'help': 'Waits for --app_ready_file to exist before starting stream if set to "true"'},
     {'name': 'app_ready_file', 'type': 'str', 'default': '/tmp/selkies-appready', 'help': 'File set by sidecar used to indicate that app is initialized and ready'},

@@ -10,7 +10,7 @@ import logging
 from aiohttp import web
 from typing import Dict, Optional, Tuple
 
-from settings import settings_webrtc as settings
+from .settings import settings_webrtc as settings
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

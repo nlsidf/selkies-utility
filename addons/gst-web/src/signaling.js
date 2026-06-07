@@ -44,7 +44,7 @@ class WebRTCDemoSignaling {
      *    Signaling implementation is here:
      *      https://github.com/GStreamer/gstreamer/tree/main/subprojects/gst-examples/webrtc/signaling
      */
-    constructor(server) {
+    constructor(server, client_type = 'controller', client_slot = -1, client_strict_viewer = false) {
         /**
          * @private
          * @type {URL}
@@ -53,15 +53,34 @@ class WebRTCDemoSignaling {
 
         /**
          * @private
-         * @type {number}
-         */
-        this.peer_id = 1;
-
-        /**
-         * @private
          * @type {WebSocket}
          */
         this._ws_conn = null;
+
+        /**
+         * @type {string}
+         */
+        this.peer_type = "client";
+
+        /**
+         * @type {string}
+         */
+        this.client_type = client_type;
+
+        /**
+         * @type {number}
+         */
+        this.client_slot = client_slot;
+
+        /**
+         * @type {boolean}
+         */
+        this.client_strict_viewer = client_strict_viewer;
+
+        /**
+         * @type {string}
+         */
+        this.server_peer_id = null;
 
         /**
          * @event
@@ -81,7 +100,6 @@ class WebRTCDemoSignaling {
         this.ondebug = null;
 
         /**
-         * @event
          * @type {function}
          */
         this.onice = null;
@@ -96,7 +114,13 @@ class WebRTCDemoSignaling {
          * @event
          * @type {function}
          */
-        this.ondisconnect = null;
+        this.onshowalert = null;
+
+        /**
+         * @event
+         * @type {function}
+         */
+        this.onjsonmessage = null;
 
         /**
          * @type {string}
@@ -176,16 +200,23 @@ class WebRTCDemoSignaling {
      * @event
      */
     _onServerOpen() {
-        // Send local device resolution and scaling with HELLO message.
-        var currRes = webrtc.input.getWindowResolution();
-        var meta = {
-            "res": parseInt(currRes[0]) + "x" + parseInt(currRes[1]),
-            "scale": window.devicePixelRatio
-        };
         this.state = 'connected';
-        this._ws_conn.send(`HELLO ${this.peer_id} ${btoa(JSON.stringify(meta))}`);
-        this._setStatus("Registering with server, peer ID: " + this.peer_id);
+        const meta = {
+            'client_type': this.client_type,
+            'client_slot': this.client_slot,
+            'client_strict_viewer': this.client_strict_viewer,
+        };
+        this._ws_conn.send(`HELLO ${this.peer_type} ${JSON.stringify(meta)}`);
+        this._setStatus("Registering with server, peer type: " + this.peer_type + ", client type: " + this.client_type);
         this.retry_count = 0;
+        this._hello_received = false;
+        if (this._hello_timeout) clearTimeout(this._hello_timeout);
+        this._hello_timeout = setTimeout(() => {
+            if (!this._hello_received && this.state === 'connected') {
+                this._setError("No HELLO response from server, reconnecting...");
+                this._ws_conn.close();
+            }
+        }, 8000);
     }
 
     /**
@@ -225,21 +256,34 @@ class WebRTCDemoSignaling {
         this._setDebug("server message: " + event.data);
 
         if (event.data === "HELLO") {
+            this._hello_received = true;
             this._setStatus("Registered with server.");
-            this._setStatus("Waiting for stream.");
+            this._setupCall();
+            return;
+        }
+
+        if (event.data.startsWith("SESSION_OK")) {
+            this._setStatus("Session established with server.");
+            this.server_peer_id = event.data.split(" ")[1];
             return;
         }
 
         if (event.data.startsWith("ERROR")) {
-            this._setStatus("Error from server: " + event.data);
-            // TODO: reset the connection.
+            if (event.data === "ERROR peer server not found") {
+                this._setError("Server not found. Retrying...");
+                setTimeout(() => {
+                    this._setupCall();
+                }, 1000);
+            } else {
+                this._setStatus("Error from server: " + event.data);
+            }
             return;
         }
 
-        // Attempt to parse JSON SDP or ICE message
         var msg;
         try {
-            msg = JSON.parse(event.data);
+            msg = event.data.substring(event.data.indexOf(' ') + 1);
+            msg = JSON.parse(msg);
         } catch (e) {
             if (e instanceof SyntaxError) {
                 this._setError("error parsing message as JSON: " + event.data);
@@ -254,9 +298,16 @@ class WebRTCDemoSignaling {
         } else if (msg.ice != null) {
             var icecandidate = new RTCIceCandidate(msg.ice);
             this._setICE(icecandidate);
+        } else if (msg.type !== undefined && this.onjsonmessage !== null) {
+            this.onjsonmessage(msg);
         } else {
             this._setError("unhandled JSON message: " + msg);
         }
+    }
+
+    _setupCall() {
+        this._setStatus("Initiating session with server.");
+        this._ws_conn.send(`SESSION server`);
     }
 
     /**
@@ -266,11 +317,21 @@ class WebRTCDemoSignaling {
      * @private
      * @event
      */
-    _onServerClose() {
+    _onServerClose(event) {
+        if (this._hello_timeout) clearTimeout(this._hello_timeout);
         if (this.state !== 'connecting') {
             this.state = 'disconnected';
             this._setError("Server closed connection.");
-            if (this.ondisconnect !== null) this.ondisconnect();
+            if (this.ondisconnect !== null) {
+                if (event.code === 1000 || event.code === 1001) {
+                    this.ondisconnect(false);
+                } else if (event.code === 4000) {
+                    if (this.onshowalert !== null) this.onshowalert(event.reason);
+                } else {
+                    console.log("Reconnecting due to abnormal connection closure.");
+                    this.ondisconnect(true);
+                }
+            }
         }
     }
 
@@ -307,7 +368,7 @@ class WebRTCDemoSignaling {
      */
     sendICE(ice) {
         this._setDebug("sending ice candidate: " + JSON.stringify(ice));
-        this._ws_conn.send(JSON.stringify({ 'ice': ice }));
+        this._ws_conn.send(`${this.server_peer_id} ${JSON.stringify({ 'ice': ice })}`);
     }
 
     /**
@@ -317,6 +378,6 @@ class WebRTCDemoSignaling {
      */
     sendSDP(sdp) {
         this._setDebug("sending local sdp: " + JSON.stringify(sdp));
-        this._ws_conn.send(JSON.stringify({ 'sdp': sdp }));
+        this._ws_conn.send(`${this.server_peer_id} ${JSON.stringify({ 'sdp': sdp })}`);
     }
 }

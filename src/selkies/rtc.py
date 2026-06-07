@@ -45,6 +45,7 @@ import av
 from fractions import Fraction
 from typing import List, Any, Dict, Optional
 from .webrtc.contrib.media import MediaRelay
+import numpy as np
 from enum import Enum
 from .media_pipeline import MediaPipeline
 
@@ -108,6 +109,67 @@ class PipelineBridge:
         # asynchronously wait until an item is available in the queue
         return await self._queue.get()
 
+class MediacodecEncoder:
+    """H.264 hardware encoder using Android MediaCodec via PyAV (h264_mediacodec)."""
+    def __init__(self, width: int, height: int, bitrate: int, framerate: int, gop_size: int = 30):
+        self.width = width
+        self.height = height
+        self.bitrate = bitrate
+        self.framerate = framerate
+        self.gop_size = gop_size
+        self._enc = None
+        self._pts_counter = 0
+
+    def _create(self):
+        codec = av.Codec("h264_mediacodec", "w")
+        enc = codec.create()
+        enc.width = self.width
+        enc.height = self.height
+        enc.pix_fmt = "nv12"
+        enc.framerate = self.framerate
+        enc.time_base = Fraction(1, 90000)
+        enc.bit_rate = self.bitrate * 1000
+        enc.gop_size = self.gop_size
+        enc.options = {"zerolatency": "1"}
+        enc.open()
+        return enc
+
+    def ensure_open(self):
+        if not self._enc:
+            self._enc = self._create()
+            self._pts_counter = 0
+
+    def encode(self, data: bytes, frame_pts: int) -> list:
+        self.ensure_open()
+        frame = av.VideoFrame(self.width, self.height, "nv12")
+        # NV12: Y plane = width*height bytes, UV plane = width*height/2 bytes interleaved
+        y_size = self.width * self.height
+        frame.planes[0].update(np.frombuffer(data[:y_size], dtype=np.uint8).reshape(self.height, self.width))
+        frame.planes[1].update(np.frombuffer(data[y_size:], dtype=np.uint8).reshape(self.height, self.width // 2))
+        frame.pts = frame_pts
+        packets = self._enc.encode(frame)
+        result = []
+        for p in packets:
+            p.pts = self._pts_counter
+            self._pts_counter += p.size // (self.width * self.height) + 1
+            p.time_base = Fraction(1, 90000)
+            result.append(p)
+        return result
+
+    def force_keyframe(self):
+        if self._enc:
+            self._enc = None
+
+    def close(self):
+        if self._enc:
+            try:
+                packets = self._enc.encode(None)
+                for p in packets:
+                    pass
+            except Exception:
+                pass
+            self._enc = None
+
 class AudioMedia(AudioStreamTrack):
     def __init__(self, data_pipeline: PipelineBridge):
         super().__init__()
@@ -161,6 +223,11 @@ class RTCApp:
         self.on_sdp = lambda sdp_type, sdp, client_peer_id: logger.warning('unhandled sdp event')
 
         self.request_idr_frame = lambda: logger.warning('unhandled request_idr_frame')
+
+    async def mediacodec_force_keyframe(self):
+        if hasattr(self, '_mediacodec_enc') and self._mediacodec_enc is not None:
+            self._mediacodec_enc.force_keyframe()
+            logger.info("Forced mediacodec keyframe on next encode")
 
     async def set_sdp(self, sdp_type: str, sdp: str, client_peer_id: str):
         """Sets remote SDP received by peer"""
@@ -427,6 +494,44 @@ class RTCApp:
         else:
             logger.warning("sample received is empty")
 
+    async def consume_data_mediacodec(self, sample, kind):
+        if kind != "video":
+            return Gst.FlowReturn.OK
+        if not sample:
+            return Gst.FlowReturn.OK
+        buf = sample.get_buffer()
+        if not buf:
+            return Gst.FlowReturn.OK
+        caps = sample.get_caps()
+        result, map_info = buf.map(Gst.MapFlags.READ)
+        if not result:
+            return Gst.FlowReturn.ERROR
+        try:
+            data = bytes(map_info.data)
+            RTP_CLOCK = 90000
+            pts = (buf.pts * RTP_CLOCK) // 1000000000 if buf.pts is not None and buf.pts != Gst.CLOCK_TIME_NONE else 0
+            stream_info = caps.get_structure(0)
+            ok, height = stream_info.get_int("height")
+            ok2, width = stream_info.get_int("width")
+            if not ok or not ok2:
+                return Gst.FlowReturn.OK
+            if not hasattr(self, '_mediacodec_enc') or self._mediacodec_enc is None:
+                self._mediacodec_enc = MediacodecEncoder(width, height, 5000, 30)
+            enc = self._mediacodec_enc
+            if enc.width != width or enc.height != height:
+                enc.close()
+                self._mediacodec_enc = MediacodecEncoder(width, height, 5000, 30)
+                enc = self._mediacodec_enc
+            packets = enc.encode(data, pts)
+            for p in packets:
+                if p.size > 0 and self.video_pipeline_bridge is not None:
+                    await self.video_pipeline_bridge.set_data(p)
+        except Exception as e:
+            logger.error(f"mediacodec encode error: {e}")
+        finally:
+            buf.unmap(map_info)
+        return Gst.FlowReturn.OK
+
     async def consume_data_pixel(self, buf, pts, kind):
         if kind == "video":
             if buf:
@@ -667,10 +772,11 @@ class RTCApp:
 
         # TODO: aiortc only supports a limited set of codecs for now
         encoder_mime_map = {
-            "x264enc"  : "video/H264",
-            "nvh264enc": "video/H264",
-            "vp8enc"   : "video/VP8",
-            # "av1enc"   : "video/AV1"
+            "x264enc"        : "video/H264",
+            "nvh264enc"      : "video/H264",
+            "vp8enc"         : "video/VP8",
+            "openh264enc"    : "video/H264",
+            "h264_mediacodec": "video/H264",
         }
         return encoder_mime_map.get(encoder)
 

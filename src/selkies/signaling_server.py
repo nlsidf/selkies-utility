@@ -279,7 +279,10 @@ class WebRTCSimpleServer(object):
         # Guess file content type
         extension = full_path.split(".")[-1]
         mime_type = MIME_TYPES.get(extension, "application/octet-stream")
-        response_headers['Content-Type'] = mime_type
+        if mime_type.startswith('text/') or mime_type == 'application/javascript':
+            response_headers['Content-Type'] = mime_type + '; charset=utf-8'
+        else:
+            response_headers['Content-Type'] = mime_type
 
         # Read the whole file into memory and send it out
         body = await self.cache_file(full_path)
@@ -387,7 +390,8 @@ class WebRTCSimpleServer(object):
                     wso = other_peer.ws
                     status = other_peer.peer_status
                     assert(status == 'session')
-                    logger.info("{} -> {}: {}".format(uid, other_id, msg))
+                    if 'system_stats' not in msg_string:
+                        logger.info("{} -> {}: {}".format(uid, other_id, msg))
                     msg_string = '{} {}'.format(uid, msg_string)
                     await wso.send(msg_string)
                 # We're in a room, accept room-specific commands

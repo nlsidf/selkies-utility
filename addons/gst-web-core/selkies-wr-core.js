@@ -116,6 +116,31 @@ function InitUI() {
 		margin-top: 1em;
 	}
 
+	.virtual-keyboard-btn {
+		position: absolute;
+		bottom: 8px;
+		right: 8px;
+		z-index: 6;
+		width: 38px;
+		height: 38px;
+		border-radius: 8px;
+		background: rgba(0,0,0,0.55);
+		border: 1px solid rgba(255,255,255,0.12);
+		color: #fff;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0;
+		margin: 0;
+		-webkit-tap-highlight-color: transparent;
+		pointer-events: auto;
+		transition: background 0.15s;
+	}
+	.virtual-keyboard-btn:active {
+		background: rgba(255,255,255,0.2);
+	}
+
 	.hidden {
 		display: none !important;
 	}
@@ -1190,6 +1215,31 @@ export default function webrtc() {
 				document.body.appendChild(keyboardInputAssist);
 				console.log("Dynamically added #keyboard-input-assist element.");
 			}
+
+			function showKeyboard() {
+				const kbd = document.getElementById('keyboard-input-assist');
+				const ov = document.getElementById('overlayInput');
+				if (!kbd) return;
+				if (document.activeElement === kbd) {
+					kbd.blur();
+				} else {
+					kbd.value = '';
+					kbd.focus();
+					if (ov) {
+						ov.addEventListener('touchstart', () => {
+							if (document.activeElement === kbd) kbd.blur();
+						}, { once: true, passive: true });
+					}
+				}
+			}
+
+			const vkBtn = document.createElement('button');
+			vkBtn.className = 'virtual-keyboard-btn';
+			vkBtn.setAttribute('aria-label', 'Toggle virtual keyboard');
+			vkBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M20 5H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z"/></svg>';
+			vkBtn.addEventListener('click', (e) => { e.stopPropagation(); showKeyboard(); });
+			videoContainer.appendChild(vkBtn);
+
 			// Fetch locally stored application data
 			appName = window.location.pathname.endsWith("/") && (window.location.pathname.split("/")[1]) || "webrtc";
 			debug = getBoolParam('debug', false);

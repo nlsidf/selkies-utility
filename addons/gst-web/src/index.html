@@ -7,6 +7,7 @@
 
 <head>
   <link href="css/vuetify.css" rel="stylesheet" />
+  <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="manifest" href="manifest.json" crossorigin="use-credentials">
   <meta name="theme-color" content="black"/>
@@ -130,6 +131,98 @@
 
     [v-cloak] {
         display: none;
+    }
+
+    .virtual-keyboard-btn {
+      position: fixed !important;
+      bottom: 16px;
+      right: 16px;
+      z-index: 10000;
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      background: rgba(0,0,0,0.55);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      margin: 0;
+      -webkit-tap-highlight-color: transparent;
+      pointer-events: auto;
+      transition: background 0.15s;
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      outline: none;
+    }
+    .virtual-keyboard-btn:active {
+      background: rgba(255,255,255,0.2);
+    }
+    .virtual-keyboard-btn.tapped {
+      background: rgba(255,255,255,0.25);
+    }
+
+    .func-keys-panel {
+      position: fixed;
+      bottom: 68px;
+      right: 8px;
+      z-index: 9999;
+      background: rgba(20,20,25,0.88);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 14px;
+      padding: 8px;
+      display: none;
+      flex-direction: column;
+      gap: 5px;
+      pointer-events: auto;
+      min-width: 200px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+    .func-keys-panel.show {
+      display: flex;
+    }
+    .func-keys-row {
+      display: flex;
+      gap: 4px;
+      justify-content: center;
+    }
+    .func-key {
+      min-width: 36px;
+      height: 34px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.06);
+      color: #ddd;
+      font-size: 11px;
+      font-family: sans-serif;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 6px;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      transition: background 0.1s;
+      flex: 1;
+      white-space: nowrap;
+    }
+    .func-key:active {
+      background: rgba(255,255,255,0.2);
+    }
+    .func-key.mod-active {
+      background: rgba(100,180,255,0.3);
+      border-color: rgba(100,180,255,0.4);
+      color: #fff;
+    }
+    .func-key.arrow {
+      font-size: 16px;
+    }
+    .func-key.wide {
+      flex: 1.5;
     }
   </style>
   <title>Selkies - webrtc</title>
@@ -402,6 +495,11 @@
       </div>
     </v-app>
   </div>
+
+<input id="keyboard-input-assist" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-hidden="true"
+  style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;border:0;padding:0;caret-color:transparent">
+<button class="virtual-keyboard-btn" id="vkBtn" aria-label="Toggle virtual keyboard"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M20 5H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z"/></svg></button>
+<div id="funcKeysPanel" class="func-keys-panel"></div>
 </body>
 
 <script type="text/javascript">
@@ -425,16 +523,223 @@ navigator.serviceWorker.addEventListener('message', event => {
     }
 });
 </script>
-<script src="lib/webrtc-adapter-9.0.1.min.js?ts=1"></script>
-<script src="lib/vue-v2.7.16.min.js?ts=1"></script>
-<script src="lib/vuetify-1.5.24.min.js?ts=1"></script>
-<script src="lib/vue-spinner-v1.0.4.min.js?ts=1"></script>
-<script src="lib/guacamole-keyboard-selkies.js?ts=1"></script>
-<script src="gamepad.js?ts=1"></script>
-<script src="input.js?ts=1"></script>
-<script src="util.js?ts=1"></script>
-<script src="signaling.js?ts=1"></script>
-<script src="webrtc.js?ts=1"></script>
-<script src="app.js?ts=1"></script>
+<script src="lib/webrtc-adapter-9.0.1.min.js?ts=2"></script>
+<script src="lib/vue-v2.7.16.min.js?ts=2"></script>
+<script src="lib/vuetify-1.5.24.min.js?ts=2"></script>
+<script src="lib/vue-spinner-v1.0.4.min.js?ts=2"></script>
+<script src="lib/guacamole-keyboard-selkies.js?ts=2"></script>
+<script src="gamepad.js?ts=2"></script>
+<script src="input.js?ts=2"></script>
+<script src="util.js?ts=2"></script>
+<script src="signaling.js?ts=2"></script>
+<script src="webrtc.js?ts=2"></script>
+<script src="app.js?ts=2"></script>
+<script>
+(function(){
+  // ---- IME input handling ----
+  var kbdInput = document.getElementById('keyboard-input-assist');
+  if (kbdInput) {
+    kbdInput.addEventListener('input', function(){
+      var text = this.value;
+      if (!text) return;
+      this.value = '';
+      for (var i = 0; i < text.length; i++) {
+        var ks = text.charCodeAt(i);
+        sendKey(ks);
+      }
+    });
+  }
+
+  function sendKey(keysym) {
+    if (window.webrtc && window.webrtc.sendDataChannelMessage) {
+      window.webrtc.sendDataChannelMessage('kd,' + keysym);
+      setTimeout(function(ks){
+        return function(){
+          if (window.webrtc && window.webrtc.sendDataChannelMessage)
+            window.webrtc.sendDataChannelMessage('ku,' + ks);
+        };
+      }(keysym), 10);
+    }
+  }
+
+  function toggleKeyboard() {
+    var kbd = document.getElementById('keyboard-input-assist');
+    var ov = document.getElementById('video_container');
+    if (!kbd) return;
+    if (document.activeElement === kbd) {
+      kbd.blur();
+    } else {
+      kbd.value = '';
+      kbd.focus();
+      if (ov) {
+        ov.addEventListener('touchstart', function(){
+          if (document.activeElement === kbd) kbd.blur();
+        }, { once: true, passive: true });
+      }
+    }
+  }
+
+  // ---- Function keys panel ----
+  var FUNC_KEYS = [
+    // row 0
+    [
+      { label: 'Esc', ks: 0xFF1B },
+      { label: 'Tab', ks: 0xFF09 },
+      { label: 'Enter', ks: 0xFF0D },
+      { label: 'Bsp', ks: 0xFF08 },
+      { label: 'Del', ks: 0xFFFF },
+    ],
+    // row 1
+    [
+      { label: 'PrtSc', ks: 0xFF61 },
+      { label: 'Ins', ks: 0xFF63 },
+      { label: 'Pause', ks: 0xFF13 },
+      { label: '\u2191', ks: 0xFF52, cls: 'arrow' },
+      { label: '\u2193', ks: 0xFF54, cls: 'arrow' },
+    ],
+    // row 2
+    [
+      { label: '\u2190', ks: 0xFF51, cls: 'arrow' },
+      { label: '\u2192', ks: 0xFF53, cls: 'arrow' },
+      { label: 'Home', ks: 0xFF50 },
+      { label: 'End', ks: 0xFF57 },
+      { label: 'PgUp', ks: 0xFF55 },
+    ],
+    // row 3
+    [
+      { label: 'PgDn', ks: 0xFF56 },
+      { label: 'Ctrl', ks: 0xFFE3, mod: true },
+      { label: 'Alt', ks: 0xFFE9, mod: true },
+      { label: 'Shift', ks: 0xFFE1, mod: true },
+      { label: 'Win', ks: 0xFFEB, mod: true },
+    ],
+    // row 4
+    [
+      { label: 'F1', ks: 0xFFBE }, { label: 'F2', ks: 0xFFBF },
+      { label: 'F3', ks: 0xFFC0 }, { label: 'F4', ks: 0xFFC1 },
+      { label: 'F5', ks: 0xFFC2 },
+    ],
+    // row 5
+    [
+      { label: 'F6', ks: 0xFFC3 }, { label: 'F7', ks: 0xFFC4 },
+      { label: 'F8', ks: 0xFFC5 }, { label: 'F9', ks: 0xFFC6 },
+      { label: 'F10', ks: 0xFFC7 },
+    ],
+    // row 6
+    [
+      { label: 'F11', ks: 0xFFC8 }, { label: 'F12', ks: 0xFFC9 },
+    ],
+  ];
+
+  var modState = {};
+  var panel = document.getElementById('funcKeysPanel');
+  var btn = document.getElementById('vkBtn');
+
+  function buildPanel() {
+    if (!panel) return;
+    panel.innerHTML = '';
+    FUNC_KEYS.forEach(function(row){
+      var rowDiv = document.createElement('div');
+      rowDiv.className = 'func-keys-row';
+      row.forEach(function(k){
+        var el = document.createElement('div');
+        el.className = 'func-key' + (k.cls ? ' ' + k.cls : '');
+        el.textContent = k.label;
+        if (k.mod) el.dataset.mod = k.label;
+        el.addEventListener('click', function(e){
+          e.stopPropagation();
+          if (k.mod) {
+            var label = k.label;
+            if (modState[label]) {
+              sendKey(k.ks);
+              modState[label] = false;
+              el.classList.remove('mod-active');
+            } else {
+              sendKey(k.ks);
+              modState[label] = true;
+              el.classList.add('mod-active');
+            }
+          } else {
+            sendKey(k.ks);
+          }
+        });
+        rowDiv.appendChild(el);
+      });
+      panel.appendChild(rowDiv);
+    });
+  }
+
+  function showPanel() {
+    buildPanel();
+    panel.classList.add('show');
+    overlay.style.display = 'block';
+  }
+
+  function hidePanel() {
+    panel.classList.remove('show');
+    overlay.style.display = 'none';
+    // release held modifiers
+    Object.keys(modState).forEach(function(label){
+      if (modState[label]) {
+        var ks = 0;
+        FUNC_KEYS.forEach(function(row){
+          row.forEach(function(k){
+            if (k.mod && k.label === label) ks = k.ks;
+          });
+        });
+        if (ks) sendKey(ks);
+        modState[label] = false;
+      }
+    });
+    var activeMods = panel.querySelectorAll('.mod-active');
+    activeMods.forEach(function(el){ el.classList.remove('mod-active'); });
+  }
+
+  function togglePanel() {
+    if (panel.classList.contains('show')) {
+      hidePanel();
+    } else {
+      showPanel();
+    }
+  }
+
+  // ---- Double-tap detection ----
+  if (btn) {
+    var tapTimer = null;
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      btn.classList.add('tapped');
+      setTimeout(function(){ btn.classList.remove('tapped'); }, 150);
+
+      if (tapTimer) {
+        clearTimeout(tapTimer);
+        tapTimer = null;
+        // Double tap
+        togglePanel();
+      } else {
+        tapTimer = setTimeout(function(){
+          tapTimer = null;
+          // Single tap
+          toggleKeyboard();
+        }, 250);
+      }
+    });
+  }
+
+  // ---- Dismiss panel on click outside ----
+  document.addEventListener('click', function(e){
+    if (!panel.classList.contains('show')) return;
+    if (panel.contains(e.target) || btn.contains(e.target)) return;
+    hidePanel();
+  }, true);
+
+  // ---- Hide panel when keyboard assist is blurred (extra cleanup) ----
+  if (kbdInput) {
+    kbdInput.addEventListener('blur', function(){
+      // do nothing extra for now
+    });
+  }
+})();
+</script>
 
 </html>
