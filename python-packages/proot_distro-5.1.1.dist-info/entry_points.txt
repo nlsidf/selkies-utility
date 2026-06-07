@@ -1,3 +1,0 @@
-[console_scripts]
-pd = proot_distro.cli:main
-proot-distro = proot_distro.cli:main
