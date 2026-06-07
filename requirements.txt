@@ -1,0 +1,47 @@
+GPUtil==1.4.0
+MarkupSafe==3.0.3
+PyGObject==3.56.3
+aiofiles==25.1.0
+aiohappyeyeballs==2.6.2
+aiohttp==3.14.0
+aioice==0.10.2
+aiosignal==1.4.0
+attrs==26.1.0
+av==17.0.1
+basicauth==1.0.0
+cffi==2.0.0
+cryptography==48.0.0
+distro==1.9.0
+dnspython==2.8.0
+frozenlist==1.8.0
+google-crc32c==1.8.0
+idna==3.18
+ifaddr==0.2.0
+meson==1.11.1
+msgpack @ file:///home/builder/.termux-build/python-msgpack/src/dist/msgpack-1.1.2-cp313-cp313-android_aarch64.whl#sha256=88b8664ba60f6ee2ffa50c4793cd726e3caebf95cef512f72b0fabf30ff18be8
+multidict==6.7.1
+ninja==1.13.0
+numpy==2.4.6
+pasimple==0.0.3
+pcmflux==1.0.8
+pillow @ file:///home/builder/.termux-build/python-pillow/src
+pixelflux==1.4.7
+prometheus_client==0.25.0
+proot-distro @ file:///home/builder/.termux-build/proot-distro/src
+propcache==0.5.2
+psutil @ file:///home/builder/.termux-build/python-psutil/src
+pulsectl==24.12.0
+pyOpenSSL==26.2.0
+pycairo==1.29.0
+pycparser==3.0
+pyee==13.0.1
+pylibsrtp==1.0.0
+pynput==1.8.2
+setuptools==82.0.1
+six==1.17.0
+typing_extensions==4.15.0
+udocker @ file:///home/builder/.termux-build/udocker/src
+watchdog==6.0.0
+websockets==13.1
+xkbcommon==1.5.1
+yarl==1.24.2
